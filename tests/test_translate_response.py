@@ -134,7 +134,7 @@ def test_degenerate_completion_raises_upstream_empty():
                 projection=NO_PROJECTION,
                 est_input_tokens=1,
             )
-        assert e.value.status == 502 and e.value.type == "overloaded_error"
+        assert e.value.status == 503 and e.value.type == "overloaded_error"
 
 
 def test_text_delta_event_carries_the_whole_text():

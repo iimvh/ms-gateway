@@ -60,18 +60,18 @@ def _stop_reason(finish_reason: str | None) -> str:
 def _message(payload: Any, *, model_requested: str, projection: Projection, est_input_tokens: int):
     if not isinstance(payload, dict):
         raise AnthropicError(
-            502, "overloaded_error", "the M365 proxy returned no completion choices"
+            503, "overloaded_error", "the M365 proxy returned no completion choices"
         )
     choices = payload.get("choices")
     if not isinstance(choices, list) or not choices:
         raise AnthropicError(
-            502, "overloaded_error", "the M365 proxy returned no completion choices"
+            503, "overloaded_error", "the M365 proxy returned no completion choices"
         )
     first = choices[0] if isinstance(choices[0], dict) else {}
     message = first.get("message")
     if not isinstance(message, dict):
         raise AnthropicError(
-            502, "overloaded_error", "the M365 proxy returned a completion without a message"
+            503, "overloaded_error", "the M365 proxy returned a completion without a message"
         )
     return first, message
 
