@@ -77,14 +77,38 @@ Normalisation first: lowercase, strip `[1m]` and a trailing `-YYYYMMDD`.
 
 ## Two costs to know
 
-- **`claude-opus` is metered** — 40 turns/day on M365's side, one unit per turn,
-  every tool call being a turn. Stay on `claude-sonnet` unless you mean it.
+- **`claude-opus` is metered and premium-only** — on a paid account it has 40
+  turns/day, one unit per turn, every tool call being a turn. On a personal
+  account it is a dead route (see *Account type*). Stay on `claude-sonnet` unless
+  you mean it.
 - **Turns are buffered.** The upstream call is non-streaming on purpose: it is the
   only mode that returns real 400/429/502 statuses, which is what makes a
   `Disengaged` a single fatal 400 instead of a retry loop that burns quota. The
   price is that the client waits for the whole turn (typically 3–30 s, worst case
   ~160 s) before the first token. The Anthropic SDK's default timeout is 10
   minutes, so this holds.
+
+## Account type
+
+Only the *included* scenario is assumed. On a **personal M365 account**, which is
+what the phase-1 setup was measured on:
+
+| Mapping | On a personal account |
+|---|---|
+| `*sonnet*` → `claude-sonnet` (Sonnet 4.6) | works; included scenario, no priority-access budget |
+| `*haiku*` → `gpt-5.5` | works (chat tone) |
+| `*opus*` → `claude-opus` | **dead route**: Opus needs the paid scenario, so the proxy answers `502 model_route_unavailable` and the gateway turns that into a non-retryable 404 that names the reason |
+
+Nothing is silently downgraded on purpose: the spec's anti-goals forbid changing
+what the model or toolset is without telling the operator. If you *want* opus
+requests to land on sonnet on this account, say so explicitly with
+`M365_GATEWAY_OPUS_MODEL=claude-sonnet` — one env var, visible in the tap as
+`model_mapped`.
+
+Claude tones serve **without** the tool agent (that is the proxy's per-tone
+routing, not this gateway's), so the live unknown for this account is whether
+M365 obeys the injected tool framing next to Claude Code's own system prompt —
+spec risk R2. The tap answers it per turn.
 
 ## Errors
 
