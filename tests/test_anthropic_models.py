@@ -18,7 +18,9 @@ def test_unknown_top_level_and_block_fields_are_preserved():
 
 
 def test_defaults_and_system_shapes():
-    a = MessagesRequest.model_validate({"model": "m", "messages": [{"role": "user", "content": "hi"}]})
+    a = MessagesRequest.model_validate(
+        {"model": "m", "messages": [{"role": "user", "content": "hi"}]}
+    )
     assert a.stream is False and a.max_tokens == 8192 and a.system is None
     b = MessagesRequest.model_validate(
         {"model": "m", "max_tokens": 10, "messages": [], "system": [{"type": "text", "text": "s"}]}
@@ -41,7 +43,9 @@ def test_tool_choice_and_thinking_keep_their_shape():
 
 def test_missing_max_tokens_defaults_to_8192():
     # spec §7.8: max_tokens is mandatory in the Anthropic API; default it rather than 400
-    req = MessagesRequest.model_validate({"model": "m", "messages": [{"role": "user", "content": "x"}]})
+    req = MessagesRequest.model_validate(
+        {"model": "m", "messages": [{"role": "user", "content": "x"}]}
+    )
     assert req.max_tokens == 8192
 
 

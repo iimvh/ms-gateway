@@ -77,7 +77,9 @@ def map_upstream_error(status: int, body: Any, retry_after: str | None) -> Anthr
     if status == 429:
         return AnthropicError(429, "rate_limit_error", message, code, retry)
     if status == 502 and kind == "disengaged":
-        return AnthropicError(400, "invalid_request_error", _disengaged_message(upstream_message), "m365_disengaged")
+        return AnthropicError(
+            400, "invalid_request_error", _disengaged_message(upstream_message), "m365_disengaged"
+        )
     if status == 502 and kind == "upstream_empty_response":
         return AnthropicError(503, "overloaded_error", message, code, retry)
     if status == 502 and code == "model_route_unavailable":

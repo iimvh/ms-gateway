@@ -93,12 +93,16 @@ def project_tools(
                 continue
             projected_name = f"{param_name}_json"
             renamed[param_name] = projected_name
-            description = param_schema.get("description") if isinstance(param_schema, dict) else None
+            description = (
+                param_schema.get("description") if isinstance(param_schema, dict) else None
+            )
             kind = param_schema.get("type", "value") if isinstance(param_schema, dict) else "value"
             new_properties[projected_name] = {
                 "type": "string",
                 "description": (
-                    f"JSON-encoded {description}" if description else f"JSON-encoded {param_name} ({kind})"
+                    f"JSON-encoded {description}"
+                    if description
+                    else f"JSON-encoded {param_name} ({kind})"
                 ),
             }
 
@@ -125,7 +129,4 @@ def project_tools(
 
 def describe(projection: Projection) -> list[dict[str, Any]]:
     """The tap's `projected_tools` field: a visible record of the adaptation."""
-    return [
-        {"tool": name, "params": sorted(params)}
-        for name, params in projection.tools.items()
-    ]
+    return [{"tool": name, "params": sorted(params)} for name, params in projection.tools.items()]

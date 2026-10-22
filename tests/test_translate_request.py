@@ -10,7 +10,12 @@ def build(body, model="claude-sonnet"):
 
 def test_system_string_becomes_one_leading_system_message():
     up = build(
-        {"model": "x", "max_tokens": 5, "system": "S1", "messages": [{"role": "user", "content": "hi"}]}
+        {
+            "model": "x",
+            "max_tokens": 5,
+            "system": "S1",
+            "messages": [{"role": "user", "content": "hi"}],
+        }
     )
     assert up.payload["messages"][0] == {"role": "system", "content": "S1"}
     assert up.payload["stream"] is False and up.payload["model"] == "claude-sonnet"
@@ -32,7 +37,9 @@ def test_system_blocks_are_joined_and_cache_control_dropped():
 
 def test_empty_system_sends_no_system_message():
     for system in ("", []):
-        up = build({"model": "x", "system": system, "messages": [{"role": "user", "content": "hi"}]})
+        up = build(
+            {"model": "x", "system": system, "messages": [{"role": "user", "content": "hi"}]}
+        )
         assert [m["role"] for m in up.payload["messages"]] == ["user"]
 
 
@@ -46,13 +53,23 @@ def test_tool_result_blocks_become_tool_messages_before_trailing_text():
                     "role": "assistant",
                     "content": [
                         {"type": "text", "text": "ok"},
-                        {"type": "tool_use", "id": "call_1", "name": "Bash", "input": {"command": "ls"}},
+                        {
+                            "type": "tool_use",
+                            "id": "call_1",
+                            "name": "Bash",
+                            "input": {"command": "ls"},
+                        },
                     ],
                 },
                 {
                     "role": "user",
                     "content": [
-                        {"type": "tool_result", "tool_use_id": "call_1", "content": "a\nb", "is_error": True},
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": "call_1",
+                            "content": "a\nb",
+                            "is_error": True,
+                        },
                         {"type": "text", "text": "and now edit"},
                     ],
                 },
@@ -110,7 +127,9 @@ def test_tool_result_with_image_or_empty_content_still_becomes_a_tool_message():
                     },
                     {
                         "role": "user",
-                        "content": [{"type": "tool_result", "tool_use_id": "c1", "content": content}],
+                        "content": [
+                            {"type": "tool_result", "tool_use_id": "c1", "content": content}
+                        ],
                     },
                 ],
             }
@@ -127,7 +146,10 @@ def test_tools_and_tool_choice_map():
                 {
                     "name": "Bash",
                     "description": "d",
-                    "input_schema": {"type": "object", "properties": {"command": {"type": "string"}}},
+                    "input_schema": {
+                        "type": "object",
+                        "properties": {"command": {"type": "string"}},
+                    },
                 }
             ],
             "tool_choice": {"type": "any"},
@@ -139,10 +161,16 @@ def test_tools_and_tool_choice_map():
 
 
 def test_tool_choice_none_and_tool_forms():
-    base = {"model": "x", "messages": [{"role": "user", "content": "u"}], "tools": [{"name": "Bash"}]}
+    base = {
+        "model": "x",
+        "messages": [{"role": "user", "content": "u"}],
+        "tools": [{"name": "Bash"}],
+    }
     assert build({**base, "tool_choice": {"type": "none"}}).payload["tool_choice"] == "none"
     assert build({**base, "tool_choice": {"type": "auto"}}).payload["tool_choice"] == "auto"
-    assert build({**base, "tool_choice": {"type": "tool", "name": "Bash"}}).payload["tool_choice"] == {
+    assert build({**base, "tool_choice": {"type": "tool", "name": "Bash"}}).payload[
+        "tool_choice"
+    ] == {
         "type": "function",
         "function": {"name": "Bash"},
     }
@@ -193,7 +221,9 @@ def test_estimate_includes_system_and_tools():
 
 
 def test_tool_without_schema_goes_upstream_with_an_empty_object_schema():
-    up = build({"model": "x", "messages": [{"role": "user", "content": "u"}], "tools": [{"name": "T"}]})
+    up = build(
+        {"model": "x", "messages": [{"role": "user", "content": "u"}], "tools": [{"name": "T"}]}
+    )
     assert up.payload["tools"][0]["function"]["parameters"] == {"type": "object", "properties": {}}
 
 
@@ -203,7 +233,12 @@ def test_json_arguments_are_compact():
             "model": "x",
             "messages": [
                 {"role": "user", "content": "u"},
-                {"role": "assistant", "content": [{"type": "tool_use", "id": "c", "name": "T", "input": {"a": 1, "b": [1, 2]}}]},
+                {
+                    "role": "assistant",
+                    "content": [
+                        {"type": "tool_use", "id": "c", "name": "T", "input": {"a": 1, "b": [1, 2]}}
+                    ],
+                },
             ],
         }
     )

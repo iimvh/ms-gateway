@@ -11,7 +11,7 @@ import math
 from dataclasses import dataclass
 from typing import Any
 
-from .anthropic_models import EMPTY_OBJECT_SCHEMA, Block, MessagesRequest
+from .anthropic_models import Block, MessagesRequest
 from .log import get_logger
 from .projection import Projection, project_tools
 
@@ -123,9 +123,11 @@ def _user_messages(blocks: list[Block]) -> list[dict[str, Any]]:
 
 def _convert_message(message: Any) -> list[dict[str, Any]]:
     if message.role == "assistant":
-        return [_assistant_message(message.content)] if isinstance(message.content, list) else [
-            {"role": "assistant", "content": message.content}
-        ]
+        return (
+            [_assistant_message(message.content)]
+            if isinstance(message.content, list)
+            else [{"role": "assistant", "content": message.content}]
+        )
     if message.role == "user":
         if isinstance(message.content, str):
             return [{"role": "user", "content": message.content}]
@@ -177,7 +179,9 @@ def build_upstream_request(request: MessagesRequest, model: str) -> UpstreamRequ
     tools: list[dict[str, Any]] = []
     projection = Projection()
     if request.tools:
-        tools, projection = project_tools([tool.model_dump(exclude_none=True) for tool in request.tools])
+        tools, projection = project_tools(
+            [tool.model_dump(exclude_none=True) for tool in request.tools]
+        )
 
     payload: dict[str, Any] = {"model": model, "messages": messages, "stream": False}
     if tools:

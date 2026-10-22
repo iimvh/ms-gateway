@@ -22,7 +22,11 @@ def test_empty_response_is_503_and_model_route_is_404():
     empty = err(502, {"error": {"type": "upstream_empty_response", "message": "empty"}})
     assert (empty.status, empty.type) == (503, "overloaded_error")
     route = err(502, {"error": {"type": "upstream_error", "code": "model_route_unavailable"}})
-    assert (route.status, route.type, route.code) == (404, "not_found_error", "model_route_unavailable")
+    assert (route.status, route.type, route.code) == (
+        404,
+        "not_found_error",
+        "model_route_unavailable",
+    )
 
 
 def test_other_5xx_is_502_api_error_and_400_passes_through():

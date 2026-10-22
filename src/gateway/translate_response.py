@@ -115,9 +115,7 @@ def build_turn(
         restored = projection.restore(name, arguments)
         call_id = call.get("id") or f"toolu_{uuid.uuid4().hex[:24]}"
         blocks.append({"type": "tool_use", "id": call_id, "name": name, "input": restored})
-        tool_calls.append(
-            {"name": name, "args_chars": args_chars, "parse_failed": parse_failed}
-        )
+        tool_calls.append({"name": name, "args_chars": args_chars, "parse_failed": parse_failed})
 
     if blocks:
         stop_reason = "tool_use"
@@ -165,7 +163,9 @@ def _events(
         "stop_sequence": None,
         "usage": {"input_tokens": est_input_tokens, "output_tokens": 0},
     }
-    events: list[tuple[str, dict[str, Any]]] = [("message_start", {"type": "message_start", "message": started})]
+    events: list[tuple[str, dict[str, Any]]] = [
+        ("message_start", {"type": "message_start", "message": started})
+    ]
 
     for index, block in enumerate(blocks):
         if block["type"] == "tool_use":
@@ -199,7 +199,11 @@ def _events(
             events.append(
                 (
                     "content_block_start",
-                    {"type": "content_block_start", "index": index, "content_block": {"type": "text", "text": ""}},
+                    {
+                        "type": "content_block_start",
+                        "index": index,
+                        "content_block": {"type": "text", "text": ""},
+                    },
                 )
             )
             events.append(

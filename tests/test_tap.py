@@ -13,7 +13,9 @@ def test_appends_one_json_line_per_request(tmp_path):
     tap = Tap(Settings(tap_dir=tmp_path))
     tap.record({"status": 200, "model_requested": "claude-sonnet-4-5"})
     tap.record({"status": 429})
-    lines = [json.loads(line) for line in tap_path(tmp_path).read_text(encoding="utf-8").splitlines()]
+    lines = [
+        json.loads(line) for line in tap_path(tmp_path).read_text(encoding="utf-8").splitlines()
+    ]
     assert [line["status"] for line in lines] == [200, 429]
     assert all(line["req_id"].startswith("req_") and "ts" in line for line in lines)
     assert lines[0]["model_requested"] == "claude-sonnet-4-5"
@@ -40,6 +42,8 @@ def test_a_missing_directory_is_created_on_first_write(tmp_path):
 def test_created_at_is_rfc3339_with_an_offset(tmp_path):
     Tap(Settings(tap_dir=tmp_path)).record({"status": 200})
     line = json.loads(tap_path(tmp_path).read_text(encoding="utf-8").splitlines()[0])
-    assert line["ts"].endswith("+00:00") or "T" in line["ts"] and (
-        "+" in line["ts"][10:] or line["ts"].endswith("Z")
+    assert (
+        line["ts"].endswith("+00:00")
+        or "T" in line["ts"]
+        and ("+" in line["ts"][10:] or line["ts"].endswith("Z"))
     )

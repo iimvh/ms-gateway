@@ -3,8 +3,8 @@ import json
 
 import httpx
 import pytest
-from conftest import UPSTREAM, sse_events, tap_lines, with_usage
 
+from conftest import UPSTREAM, sse_events, tap_lines, with_usage
 from gateway.app import run_shielded
 
 MESSAGES = {
@@ -100,12 +100,19 @@ def test_tool_result_is_sent_back_as_a_tool_message(client, respx_ok_tool, upstr
                 {
                     "role": "assistant",
                     "content": [
-                        {"type": "tool_use", "id": "call_abc", "name": "Bash", "input": {"command": "ls"}}
+                        {
+                            "type": "tool_use",
+                            "id": "call_abc",
+                            "name": "Bash",
+                            "input": {"command": "ls"},
+                        }
                     ],
                 },
                 {
                     "role": "user",
-                    "content": [{"type": "tool_result", "tool_use_id": "call_abc", "content": "a.txt"}],
+                    "content": [
+                        {"type": "tool_result", "tool_use_id": "call_abc", "content": "a.txt"}
+                    ],
                 },
             ],
         },

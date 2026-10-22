@@ -15,7 +15,11 @@ def completion(message, finish_reason="stop"):
         "object": "chat.completion",
         "model": "claude-sonnet",
         "choices": [
-            {"index": 0, "message": {"role": "assistant", **message}, "finish_reason": finish_reason}
+            {
+                "index": 0,
+                "message": {"role": "assistant", **message},
+                "finish_reason": finish_reason,
+            }
         ],
         "usage": {
             "prompt_tokens": 0,
@@ -80,7 +84,11 @@ def test_unparseable_arguments_yield_empty_input_and_a_tap_flag():
         {
             "content": None,
             "tool_calls": [
-                {"id": "c1", "type": "function", "function": {"name": "Bash", "arguments": '{"command": "ls'}}
+                {
+                    "id": "c1",
+                    "type": "function",
+                    "function": {"name": "Bash", "arguments": '{"command": "ls'},
+                }
             ],
         },
         finish="tool_calls",
@@ -93,7 +101,9 @@ def test_non_object_arguments_are_a_parse_failure_too():
     t = turn(
         {
             "content": None,
-            "tool_calls": [{"id": "c1", "type": "function", "function": {"name": "T", "arguments": "[1,2]"}}],
+            "tool_calls": [
+                {"id": "c1", "type": "function", "function": {"name": "T", "arguments": "[1,2]"}}
+            ],
         },
         finish="tool_calls",
     )
@@ -103,7 +113,12 @@ def test_non_object_arguments_are_a_parse_failure_too():
 
 def test_projected_param_is_restored_on_the_turn():
     proj = project_tools(
-        [{"name": "TodoWrite", "input_schema": {"type": "object", "properties": {"todos": {"type": "array"}}}}]
+        [
+            {
+                "name": "TodoWrite",
+                "input_schema": {"type": "object", "properties": {"todos": {"type": "array"}}},
+            }
+        ]
     )[1]
     t = turn(
         {
@@ -114,7 +129,9 @@ def test_projected_param_is_restored_on_the_turn():
                     "type": "function",
                     "function": {
                         "name": "TodoWrite",
-                        "arguments": json.dumps({"todos_json": '[{"content":"a","status":"pending"}]'}),
+                        "arguments": json.dumps(
+                            {"todos_json": '[{"content":"a","status":"pending"}]'}
+                        ),
                     },
                 }
             ],
@@ -142,10 +159,17 @@ def test_text_delta_event_carries_the_whole_text():
     assert t.events[0][0] == "message_start"
     assert t.events[0][1]["message"]["content"] == []
     assert t.events[0][1]["message"]["usage"] == {"input_tokens": 7, "output_tokens": 0}
-    assert t.events[1] == ("content_block_start", {"type": "content_block_start", "index": 0, "content_block": {"type": "text", "text": ""}})
+    assert t.events[1] == (
+        "content_block_start",
+        {"type": "content_block_start", "index": 0, "content_block": {"type": "text", "text": ""}},
+    )
     assert t.events[2] == (
         "content_block_delta",
-        {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "hello"}},
+        {
+            "type": "content_block_delta",
+            "index": 0,
+            "delta": {"type": "text_delta", "text": "hello"},
+        },
     )
     assert t.events[3] == ("content_block_stop", {"type": "content_block_stop", "index": 0})
     assert t.events[4][0] == "message_delta"
@@ -156,7 +180,12 @@ def test_text_delta_event_carries_the_whole_text():
 
 def test_tool_delta_carries_the_restored_arguments_as_one_json_chunk():
     proj = project_tools(
-        [{"name": "TodoWrite", "input_schema": {"type": "object", "properties": {"todos": {"type": "array"}}}}]
+        [
+            {
+                "name": "TodoWrite",
+                "input_schema": {"type": "object", "properties": {"todos": {"type": "array"}}},
+            }
+        ]
     )[1]
     t = turn(
         {
@@ -165,7 +194,10 @@ def test_tool_delta_carries_the_restored_arguments_as_one_json_chunk():
                 {
                     "id": "c1",
                     "type": "function",
-                    "function": {"name": "TodoWrite", "arguments": json.dumps({"todos_json": "[]"})},
+                    "function": {
+                        "name": "TodoWrite",
+                        "arguments": json.dumps({"todos_json": "[]"}),
+                    },
                 }
             ],
         },

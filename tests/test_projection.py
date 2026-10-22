@@ -48,7 +48,9 @@ def test_scalars_keep_their_names_and_nothing_is_projected():
 
 def test_restore_parses_json_and_restores_the_name():
     _, proj = project_tools([TODO])
-    out = proj.restore("TodoWrite", {"todos_json": json.dumps([{"content": "a", "status": "pending"}])})
+    out = proj.restore(
+        "TodoWrite", {"todos_json": json.dumps([{"content": "a", "status": "pending"}])}
+    )
     assert out == {"todos": [{"content": "a", "status": "pending"}]}
 
 
