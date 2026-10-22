@@ -117,3 +117,16 @@ def test_quota_headers_rename_upstream_usage_keys():
 def test_quota_headers_also_carry_response_headers():
     headers = quota_headers({"usage": {}}, {"X-M365-Dea-Score": "0.5"})
     assert headers["x-m365-dea-score"] == "0.5"
+
+
+@respx.mock
+async def test_model_list_uses_a_short_timeout():
+    route = respx.get("http://up/v1/models").mock(
+        return_value=httpx.Response(200, json={"object": "list", "data": []})
+    )
+    async with httpx.AsyncClient(timeout=600.0) as http:  # as production builds it
+        client = UpstreamClient(
+            Settings(upstream_url="http://up/v1", upstream_timeout_s=600.0), client=http
+        )
+        await client.list_models()
+    assert route.calls.last.request.extensions["timeout"]["read"] <= 15

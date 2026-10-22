@@ -21,6 +21,9 @@ from .log import get_logger
 
 log = get_logger("upstream")
 
+# Reachability/model-list probes get this ceiling, whatever the turn timeout is.
+PROBE_TIMEOUT_S = 15.0
+
 
 def _stringify(value: Any) -> str:
     if isinstance(value, (dict, list)):
@@ -83,8 +86,11 @@ class UpstreamClient:
 
     async def _get(self, path: str) -> httpx.Response:
         url = f"{self._settings.upstream_url}{path}"
+        # Model-list and reachability probes must fail fast: a wedged (not refused)
+        # proxy would otherwise hang `/healthz` for the 600 s turn timeout.
+        timeout = min(PROBE_TIMEOUT_S, self._settings.upstream_timeout_s)
         try:
-            return await self._http().get(url)
+            return await self._http().get(url, timeout=timeout)
         except httpx.HTTPError as exc:
             raise AnthropicError(502, "api_error", f"upstream request failed: {exc}") from exc
 

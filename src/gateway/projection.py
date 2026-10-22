@@ -70,6 +70,28 @@ class Projection:
             restored[original] = parsed
         return restored
 
+    def project(self, tool_name: str, args: Mapping[str, Any]) -> dict[str, Any]:
+        """The inverse of `restore`: put a replayed assistant call back into the
+        projected shape the advertised schema expects. The upstream renders
+        history against that schema (`args[spec.bodyParam]`), so leaving the
+        restored name in place would render an empty fence body."""
+        mapping = self.tools.get(tool_name)
+        if not mapping:
+            return dict(args)
+        inverse = {original: projected for projected, original in mapping.items()}
+        projected_args: dict[str, Any] = {}
+        for key, value in args.items():
+            projected = inverse.get(key)
+            if projected is None:
+                projected_args[key] = value
+            elif isinstance(value, (list, dict)):
+                projected_args[projected] = json.dumps(
+                    value, separators=(",", ":"), ensure_ascii=False
+                )
+            else:
+                projected_args[projected] = value
+        return projected_args
+
 
 def project_tools(
     tools: list[dict[str, Any]],

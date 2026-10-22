@@ -134,10 +134,13 @@ works; the M365-specific parts are the model mapping and the quota headers.
 | 429 `m365_throttled` | 429 `rate_limit_error` | yes |
 | 429 `m365_throttle_hold` / `m365_turn_budget` / `priority_access_exhausted` | 429 + `retry-after` | yes |
 | 502 `disengaged` | **400** `invalid_request_error` code `m365_disengaged` | no — deliberate, to preserve quota |
-| 502 `upstream_empty_response`, empty completion | 503 `overloaded_error` | yes |
+| 502 `upstream_empty_response` | 503 `overloaded_error` | yes |
+| 200 with no choices/message | 503 `overloaded_error` | yes |
+| 200 with a non-JSON body | 502 `api_error` | yes |
 | 502 `model_route_unavailable` | 404 `not_found_error` | no |
 | other 5xx | 502 `api_error` | yes |
 | 400 | 400, message passed through | no |
+| other 4xx (401/403/404) | same status, `invalid_request_error` | no |
 
 At ≥95% of the per-conversation message cap (~600), the gateway answers 400
 `m365_conversation_exhausted` and tells the user to `/compact`. The check runs
@@ -149,7 +152,8 @@ turn just served.
 One JSON line per request in `tap/YYYY-MM-DD.jsonl` (`TAP_DIR`, or `TAP_OFF=1`):
 timestamps, requested vs mapped model, sizes, estimated input tokens, status,
 error type/code, `retry-after`, stop reason, tool calls (with a `parse_failed`
-flag), latency, the schema projection actually applied, and the M365 counters
+flag), the request parameters that were dropped (`dropped_params`), latency, the
+schema projection actually applied, and the M365 counters
 (`x_m365_dea_score`, `x_m365_conversation_pct`, …). The same counters are
 returned to the client as `x-m365-*` headers on every successful turn.
 
@@ -173,7 +177,7 @@ see spec §7.9. The projection is recorded per request in the tap.
 ```sh
 uv sync
 uv run pytest              # unit + route tests against a respx stub, no network, no M365
-uv run ruff check src tests
+uv run ruff check src tests scripts
 ```
 
 `scripts/stub-upstream.py` serves the Node proxy's shapes on :4141 so the real

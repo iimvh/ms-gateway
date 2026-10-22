@@ -244,3 +244,111 @@ def test_json_arguments_are_compact():
     )
     arguments = up.payload["messages"][1]["tool_calls"][0]["function"]["arguments"]
     assert arguments == json.dumps({"a": 1, "b": [1, 2]}, separators=(",", ":"))
+
+
+def test_estimate_does_not_double_count_the_system_prompt():
+    # 400 chars of system + 400 of user = 200 tokens; the system prompt is one
+    # message in the payload already, so adding system_chars again inflates /context.
+    up = build(
+        {
+            "model": "x",
+            "system": "S" * 400,
+            "messages": [{"role": "user", "content": "U" * 400}],
+        }
+    )
+    assert up.system_chars == 400
+    assert up.est_input_tokens == 200
+
+
+def test_estimate_counts_messages_and_tools_once():
+    tools = [
+        {
+            "name": "Bash",
+            "description": "z" * 400,
+            "input_schema": {"type": "object", "properties": {"command": {"type": "string"}}},
+        }
+    ]
+    up = build({"model": "x", "messages": [{"role": "user", "content": "x" * 40}], "tools": tools})
+    assert up.est_input_tokens == -(-(40 + up.tools_chars) // 4)
+
+
+def test_history_tool_use_is_reprojected_to_the_advertised_parameter_names():
+    # The full-history path renders the assistant's own call against the *current*
+    # tool schema (fenced.ts renderFencedCall reads args[spec.bodyParam]), so a
+    # restored `todos` must go back out as `todos_json` or the call renders empty.
+    todos = {
+        "name": "TodoWrite",
+        "input_schema": {
+            "type": "object",
+            "properties": {"todos": {"type": "array"}},
+            "required": ["todos"],
+        },
+    }
+    up = build(
+        {
+            "model": "x",
+            "tools": [todos],
+            "messages": [
+                {"role": "user", "content": "u"},
+                {
+                    "role": "assistant",
+                    "content": [
+                        {
+                            "type": "tool_use",
+                            "id": "c1",
+                            "name": "TodoWrite",
+                            "input": {"todos": [{"content": "a"}]},
+                        }
+                    ],
+                },
+            ],
+        }
+    )
+    arguments = json.loads(up.payload["messages"][1]["tool_calls"][0]["function"]["arguments"])
+    assert arguments == {"todos_json": json.dumps([{"content": "a"}], separators=(",", ":"))}
+
+
+def test_history_tool_use_for_an_unprojected_tool_is_unchanged():
+    up = build(
+        {
+            "model": "x",
+            "tools": [{"name": "Bash"}],
+            "messages": [
+                {"role": "user", "content": "u"},
+                {
+                    "role": "assistant",
+                    "content": [
+                        {"type": "tool_use", "id": "c1", "name": "Bash", "input": {"command": "ls"}}
+                    ],
+                },
+            ],
+        }
+    )
+    assert json.loads(up.payload["messages"][1]["tool_calls"][0]["function"]["arguments"]) == {
+        "command": "ls"
+    }
+
+
+def test_dropped_params_are_recorded_for_the_tap():
+    up = build(
+        {
+            "model": "x",
+            "temperature": 0.7,
+            "top_p": 0.9,
+            "top_k": 5,
+            "stop_sequences": ["END"],
+            "thinking": {"type": "enabled"},
+            "metadata": {"user_id": "u"},
+            "service_tier": "auto",
+            "messages": [{"role": "user", "content": "u"}],
+        }
+    )
+    assert set(up.dropped) == {
+        "temperature",
+        "top_p",
+        "top_k",
+        "stop_sequences",
+        "thinking",
+        "metadata",
+        "service_tier",
+    }

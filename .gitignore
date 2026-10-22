@@ -4,3 +4,8 @@ __pycache__/
 tap/
 .pytest_cache/
 .ruff_cache/
+
+# harness scratch
+.agents/
+.dsh/
+

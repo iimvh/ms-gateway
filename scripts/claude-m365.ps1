@@ -1,10 +1,11 @@
 #!/usr/bin/env pwsh
 # Launch Claude Code against the local M365 gateway.
-# Nothing here rewrites config files or starts the proxy: it only sets the five
+# Nothing here rewrites config files or starts the proxy: it only sets the four
 # env vars the CLI reads and execs it with every argument forwarded.
-[CmdletBinding()]
-param([Parameter(ValueFromRemainingArguments = $true)][string[]] $ClaudeArgs)
-
+#
+# No [CmdletBinding()] and no param() block on purpose: with them, PowerShell
+# binds `-p` to the common `-PipelineVariable` parameter, swallows the prompt and
+# runs `claude` with no arguments. `$args` forwards everything verbatim.
 $ErrorActionPreference = "Stop"
 
 if (-not $env:ANTHROPIC_BASE_URL) { $env:ANTHROPIC_BASE_URL = "http://127.0.0.1:4142" }
@@ -20,5 +21,5 @@ if (-not (Get-Command $claude -ErrorAction SilentlyContinue)) {
     }
 }
 
-& $claude @ClaudeArgs
+& $claude @args
 exit $LASTEXITCODE

@@ -116,6 +116,7 @@ async def messages(request: Request) -> Response:
                 "tools_chars": upstream_request.tools_chars,
                 "messages_count": upstream_request.messages_count,
                 "est_input_tokens": upstream_request.est_input_tokens,
+                "dropped_params": upstream_request.dropped,
                 "projected_tools": describe(upstream_request.projection),
                 "tools": [
                     tool["function"]["name"] for tool in upstream_request.payload.get("tools", [])

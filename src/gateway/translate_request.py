@@ -2,13 +2,19 @@
 
 The upstream call is always non-streaming, and every parameter M365 ignores is
 dropped rather than forwarded (the tap still records what the client asked for).
+
+One ordering constraint drives this module: the tool projection must be built
+*before* the messages are converted, because a replayed assistant turn has to go
+back out in the projected parameter shape. The upstream renders history against
+the tool schema advertised in the same request (`renderFencedCall` reads
+`args[spec.bodyParam]`), so a restored `todos` would render as an empty body.
 """
 
 from __future__ import annotations
 
 import json
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from .anthropic_models import Block, MessagesRequest
@@ -16,6 +22,19 @@ from .log import get_logger
 from .projection import Projection, project_tools
 
 log = get_logger("translate_request")
+
+# Parameters M365 ignores: dropped from the upstream payload, recorded in the tap
+# (spec §7.1). `max_tokens` is handled separately — it always has a value after
+# the 8192 default, so recording it would say nothing about what the client sent.
+DROPPED_PARAMS = (
+    "temperature",
+    "top_p",
+    "top_k",
+    "stop_sequences",
+    "thinking",
+    "metadata",
+    "service_tier",
+)
 
 
 @dataclass(frozen=True)
@@ -27,6 +46,7 @@ class UpstreamRequest:
     tools_chars: int
     system_chars: int
     messages_count: int
+    dropped: dict[str, Any] = field(default_factory=dict)
 
 
 def _block_kind(block: Any) -> str | None:
@@ -70,20 +90,23 @@ def _tool_result_content(block: Block) -> str:
     return f"[tool error] {text}" if block.is_error else text
 
 
-def _assistant_message(blocks: list[Block]) -> dict[str, Any]:
+def _assistant_message(blocks: list[Block], projection: Projection) -> dict[str, Any]:
     texts: list[str] = []
     tool_calls: list[dict[str, Any]] = []
     for block in blocks:
         if block.type == "text" and block.text:
             texts.append(block.text)
         elif block.type == "tool_use":
+            name = block.name or ""
+            # Back into the shape the advertised schema expects (`todos` → `todos_json`).
+            arguments = projection.project(name, block.input or {})
             tool_calls.append(
                 {
                     "id": block.id,
                     "type": "function",
                     "function": {
                         "name": block.name,
-                        "arguments": json.dumps(block.input or {}, separators=(",", ":")),
+                        "arguments": json.dumps(arguments, separators=(",", ":")),
                     },
                 }
             )
@@ -121,13 +144,11 @@ def _user_messages(blocks: list[Block]) -> list[dict[str, Any]]:
     return out
 
 
-def _convert_message(message: Any) -> list[dict[str, Any]]:
+def _convert_message(message: Any, projection: Projection) -> list[dict[str, Any]]:
     if message.role == "assistant":
-        return (
-            [_assistant_message(message.content)]
-            if isinstance(message.content, list)
-            else [{"role": "assistant", "content": message.content}]
-        )
+        if isinstance(message.content, list):
+            return [_assistant_message(message.content, projection)]
+        return [{"role": "assistant", "content": message.content}]
     if message.role == "user":
         if isinstance(message.content, str):
             return [{"role": "user", "content": message.content}]
@@ -165,17 +186,20 @@ def _messages_chars(messages: list[dict[str, Any]]) -> int:
     return total
 
 
+def _dropped_params(request: MessagesRequest) -> dict[str, Any]:
+    return {
+        name: value
+        for name in DROPPED_PARAMS
+        if (value := getattr(request, name, None)) is not None
+    }
+
+
 def build_upstream_request(request: MessagesRequest, model: str) -> UpstreamRequest:
     """Translate one Anthropic request. `model` is the already-mapped upstream id."""
-    messages: list[dict[str, Any]] = []
-
     system_text = _system_text(request.system)
-    if system_text:
-        messages.append({"role": "system", "content": system_text})
 
-    for message in request.messages:
-        messages.extend(_convert_message(message))
-
+    # Tools first: the projection shapes both the advertised schema and the
+    # replayed assistant arguments.
     tools: list[dict[str, Any]] = []
     projection = Projection()
     if request.tools:
@@ -183,17 +207,26 @@ def build_upstream_request(request: MessagesRequest, model: str) -> UpstreamRequ
             [tool.model_dump(exclude_none=True) for tool in request.tools]
         )
 
+    messages: list[dict[str, Any]] = []
+    if system_text:
+        messages.append({"role": "system", "content": system_text})
+    for message in request.messages:
+        messages.extend(_convert_message(message, projection))
+
     payload: dict[str, Any] = {"model": model, "messages": messages, "stream": False}
     if tools:
         payload["tools"] = tools
-
     choice = _tool_choice(request.tool_choice)
     if choice is not None:
         payload["tool_choice"] = choice
 
+    # The system message is already one of `messages`; adding `system_chars` a
+    # second time would count Claude Code's (large) system prompt twice and make
+    # its /context and auto-compaction fire a third early (spec §7.11).
     system_chars = len(system_text)
     tools_chars = len(json.dumps(tools)) if tools else 0
-    messages_chars = _messages_chars(messages)
+    client_messages = messages[1:] if system_text else messages
+    messages_chars = _messages_chars(client_messages)
     est_input_tokens = math.ceil((system_chars + tools_chars + messages_chars) / 4)
 
     return UpstreamRequest(
@@ -204,4 +237,5 @@ def build_upstream_request(request: MessagesRequest, model: str) -> UpstreamRequ
         tools_chars=tools_chars,
         system_chars=system_chars,
         messages_count=len(messages),
+        dropped=_dropped_params(request),
     )

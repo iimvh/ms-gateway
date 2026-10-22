@@ -231,3 +231,9 @@ def test_tap_records_projected_tools(client, respx_ok_tool, settings):
     assert line["projected_tools"] == [{"tool": "TodoWrite", "params": ["todos_json"]}]
     assert line["tools_count"] == 1 and line["tools_chars"] > 0
     assert line["tool_calls"] == [{"name": "Bash", "args_chars": 16, "parse_failed": False}]
+
+
+def test_tap_records_dropped_request_params(client, respx_ok_text, settings):
+    post(client, {"temperature": 0.7, "top_p": 0.9})
+    line = tap_lines(settings.tap_dir)[0]
+    assert line["dropped_params"] == {"temperature": 0.7, "top_p": 0.9}
