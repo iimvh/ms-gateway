@@ -77,10 +77,10 @@ Normalisation first: lowercase, strip `[1m]` and a trailing `-YYYYMMDD`.
 
 ## Two costs to know
 
-- **`claude-opus` is metered and premium-only** — on a paid account it has 40
-  turns/day, one unit per turn, every tool call being a turn. On a personal
-  account it is a dead route (see *Account type*). Stay on `claude-sonnet` unless
-  you mean it.
+- **`claude-opus` is metered and premium-only** — with a paid Copilot licence it
+  has 40 turns/day, one unit per turn, every tool call being a turn; with the
+  included licence it is a dead route (see *Account type*). Stay on
+  `claude-sonnet` unless you mean it.
 - **Turns are buffered.** The upstream call is non-streaming on purpose: it is the
   only mode that returns real 400/429/502 statuses, which is what makes a
   `Disengaged` a single fatal 400 instead of a retry loop that burns quota. The
@@ -90,18 +90,24 @@ Normalisation first: lowercase, strip `[1m]` and a trailing `-YYYYMMDD`.
 
 ## Account type
 
-Only the *included* scenario is assumed. On a **personal M365 account**, which is
-what the phase-1 setup was measured on:
+The backend authenticates with the Office web Copilot client ID, and that client
+accepts **work or school accounts only**. A *personal Microsoft account*
+(outlook.com / hotmail / M365 Personal or Family) is rejected at the username step
+("You can't sign in here with a personal account"), and consumer Copilot is a
+different service that does not serve `substrate.office.com` — no gateway setting
+can change that (`m365-copilot-proxy/docs/m365-copilot-api.md` §2, issue #64).
 
-| Mapping | On a personal account |
-|---|---|
-| `*sonnet*` → `claude-sonnet` (Sonnet 4.6) | works; included scenario, no priority-access budget |
-| `*haiku*` → `gpt-5.5` | works (chat tone) |
-| `*opus*` → `claude-opus` | **dead route**: Opus needs the paid scenario, so the proxy answers `502 model_route_unavailable` and the gateway turns that into a non-retryable 404 that names the reason |
+Within a work or school tenant, the licence decides which models serve:
+
+| Mapping | Included Copilot licence | Paid Copilot licence |
+|---|---|---|
+| `*sonnet*` → `claude-sonnet` (Sonnet 4.6) | works; no priority-access budget | works |
+| `*haiku*` → `gpt-5.5` | works (chat tone) | works |
+| `*opus*` → `claude-opus` | **dead route**: `502 model_route_unavailable` → non-retryable 404 naming the reason | works, metered (40 turns/day) |
 
 Nothing is silently downgraded on purpose: the spec's anti-goals forbid changing
-what the model or toolset is without telling the operator. If you *want* opus
-requests to land on sonnet on this account, say so explicitly with
+what the model is without telling the operator. If you *want* opus requests to
+land on sonnet on an included licence, say so explicitly with
 `M365_GATEWAY_OPUS_MODEL=claude-sonnet` — one env var, visible in the tap as
 `model_mapped`.
 
@@ -109,6 +115,17 @@ Claude tones serve **without** the tool agent (that is the proxy's per-tone
 routing, not this gateway's), so the live unknown for this account is whether
 M365 obeys the injected tool framing next to Claude Code's own system prompt —
 spec risk R2. The tap answers it per turn.
+
+**Live verification status (2026-10-22):** built and verified against a stub
+upstream and against the real `claude` 2.1.308 client. The live M365 run (spec
+§10) is **blocked**: the only account available is a personal Microsoft account,
+which this backend's client ID rejects at the username step. Nothing in this repo
+or in the Node proxy can lift that.
+
+The gateway itself is not M365-specific — it translates Anthropic ⇄ OpenAI, so
+`UPSTREAM_URL` can point at any OpenAI-compatible chat-completions server (a local
+`llama.cpp`/vLLM/ollama server, another proxy) and the Claude Code tool loop still
+works; the M365-specific parts are the model mapping and the quota headers.
 
 ## Errors
 
